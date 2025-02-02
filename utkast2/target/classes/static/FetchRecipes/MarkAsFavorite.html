@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Oppskriftshåndterer</title>
+    <!-- Bootstrap link -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- importere ikoner via CDN link som spinner-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+          integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    <style>
+        .loading {
+            /* Skjuler elementet som standard */
+            display: none;
+            /* Plasserer elementet relativt til viewport */
+            position: fixed;
+            /* Plasserer elementet vertikalt sentrert */
+            top: 50%;
+            /* Plasserer elementet horisontalt sentrert */
+            left: 50%;
+            /* Flytter elementet tilbake halve sin bredde og høyde for perfekt sentrering */
+            transform: translate(-50%, -50%);
+            /* Plasserer elementet over andre elementer */
+            z-index: 1000;
+        }
+        .favorite-button {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 0.2rem;
+            cursor: pointer;
+            background-color: transparent; /* Gjør bakgrunnen transparent */
+            color: inherit; /* Arver tekstfarge for bedre integrasjon med tabellstil */
+            border: none; /* Fjern border */
+            opacity: 0.7; /* Gjør litt gjennomsiktig for et lettere utseende */
+        }
+        .favorite-button:hover {
+            opacity: 1; /* Full opasitet ved hover */
+            color: green; /* Endre farge til grønn ved hover for visuell tilbakemelding */
+        }
+        .favorite-button:focus {
+            outline: none;
+            box-shadow: none; /* Fjern fokus shadow for en mer minimalistisk stil */
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-">
+    <h1>Recipes</h1>
+    <!-- Lager en visuell loading spinenr-->
+    <div id="loading" class="loading">
+        <i class="fas fa-spinner fa-spin fa-3x"></i>
+        <p>Loading...</p>
+    </div>
+
+    <!-- errorToast - plassering  til høyre -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+            <div class="toast-header">
+                <strong class="me-auto">Recipe submission</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="close"></button>
+            </div>
+            <div id="toastBody" class="toast-body">
+                <!-- Dynamically updated content will go here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Her formateres dataene ut -->
+    <div id="recipe-container">
+        <p id="no-data-message" style="display: none">No recipes found.</p>
+        <!-- table -->
+        <table id="recipeTable" class="table table-striped">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Recipe Name</th>
+                <th>Ingredients</th>
+                <th>Preparation Time</th>
+                <th>Difficulty</th>
+                <th>Cuisine</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="recipe-list"></tbody>
+        </table>
+
+        <!-- brukes for å navigere fram og tilbake -->
+        <nav aria-label="page navigation">
+            <ul class="pagination justify-content-center">
+                <!-- Navigere tilbake link -->
+                <li class="page-item" id="previousPage">
+                    <a class="page-link" href="#" aria-label="previous">
+                        <span aria-hidden="true"><<</span>
+                    </a>
+                </li>
+                <!-- Navigere fram link -->
+                <li class="page-item" id="nextPage">
+                    <a class="page-link" href="#" aria-label="next">
+                        <span aria-hidden="true">>></span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+    </div>
+</div>
+<!-- bootStrap js link -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Axios link -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    const recipeList = document.getElementById('recipe-list'); // henter <tbody>
+    const loadingElement = document.getElementById('loading'); // loading spinner
+    const noDataMessageElement = document.getElementById('no-data-message');//<p>
+
+    let currentPage = 0;
+    let totalPages = 0; // deklarerer totalpages
+    const pageSize = 5;
+    const previousPageButton = document.getElementById('previousPage');
+    const nextPageButton = document.getElementById('nextPage');
+    const showLoading = () => {
+        loadingElement.style.display = 'block';
+    }
+    const hideLoading = () => {
+        loadingElement.style.display = 'none';
+    }
+    const showToast = (message, isSuccess = true) => {
+        const toastElement = document.getElementById('toast'); // Hent selve toast-elementet
+        const toastBody = toastElement.querySelector('.toast-body'); // Hent body-delen av toasten
+        toastBody.classList.remove('bg-danger', 'bg-success'); // Fjern eksisterende bakgrunnsfarger
+        toastBody.classList.add(isSuccess ? 'bg-success' : 'bg-danger'); // Legg til riktig bakgrunnsfarge
+        toastBody.textContent = message; // Sett meldingsteksten i toast-body
+        const toast = new bootstrap.Toast(toastElement); // Lag og vis toasten
+        toast.show(); // Vis toasten
+    }
+    const updatePaginationButtons = (totalPages) => {
+        previousPageButton.classList.remove('disabled');
+        nextPageButton.classList.remove('disabled');
+        if(currentPage === 0) {
+            previousPageButton.classList.add('disabled');
+        }
+        if(currentPage >= totalPages - 1) {
+            nextPageButton.classList.add('disabled');
+        }
+    }
+
+    // Funksjon for å lage "Mark as Favorite" knappen (nå en avhukningsboks)
+    const createFavoriteButton = (recipeId) => {
+        const button = document.createElement('button');
+        button.className = 'favorite-button'; // Bruker CSS klasse for styling
+        button.innerHTML = '<i class="far fa-square"></i>'; // Starter med tomt kvadrat ikon (unchecked)
+
+        // Legger til en egendefinert egenskap for å spore favorittstatus
+        button.dataset.isFavorite = 'false'; // Setter initial status til 'false' (ikke favoritt)
+
+        button.onclick = async () => { // Gjør onclick async for å kunne await markAsFavorite
+            const isCurrentlyFavorite = button.dataset.isFavorite === 'true';
+            const newFavoriteStatus = !isCurrentlyFavorite; // Toggle status
+
+            await markAsFavorite(recipeId, newFavoriteStatus); // Sender ny status til markAsFavorite
+
+            // Oppdaterer knappens utseende og data-attributt basert på ny status
+            button.dataset.isFavorite = String(newFavoriteStatus); // Oppdaterer data-attributt
+            if (newFavoriteStatus) {
+                button.innerHTML = '<i class="fas fa-check-square"></i>'; // Vises som avhuket (checked)
+            } else {
+                button.innerHTML = '<i class="far fa-square"></i>'; // Vises som tom boks (unchecked)
+            }
+        };
+        return button;
+    };
+
+    // Ny funksjon for å håndtere "Mark as Favorite" klikk - oppdatert for å ta imot isFavorite status
+    const markAsFavorite = async (recipeId, isFavorite) => {
+        showLoading(); // Vis loading spinner mens handlingen utføres
+        try {
+            // Her ville en lead utvikler sannsynligvis brukt en POST/PUT request for å oppdatere backend
+            // og sendt 'isFavorite' status til serveren.
+            // For eksempel: await axios.post(`/recipeController/markAsFavorite/${recipeId}`, { isFavorite: isFavorite });
+            // For dette eksemplet, simulerer vi bare handlingen med en console.log og en toast
+            console.log(`Marking recipe ID ${recipeId} as favorite: ${isFavorite}...`);
+            // Simulerer en asynkron operasjon (venter 500ms)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            showToast(`Recipe ID ${recipeId} marked as favorite: ${isFavorite ? 'true' : 'false'}!`, true);
+        } catch (error) {
+            console.error('Error marking recipe as favorite: ', error);
+            showToast(`Failed to mark recipe as favorite: ${error.message}`, false);
+        } finally {
+            hideLoading(); // Gjem loading spinner uansett resultat
+        }
+    };
+    const fetchRecipes = async () => {
+        showLoading(); // viser loading ikon
+        try {
+            const response = await axios.get(`/recipeController/getAllRecipes?page=${currentPage}&size=${pageSize}`);
+            const recipes = response.data.data.content;
+            totalPages = response.data.data.totalPages;
+            updatePaginationButtons(totalPages);
+            if(recipes && recipes.length > 0) {
+                noDataMessageElement.style.display = 'none';
+                // itererer gjennom hvert element
+                recipeList.innerHTML = recipes.map(recipe =>
+                    `<tr>
+                        <td>${recipe.id}</td>
+                        <td>${recipe.recipeName}</td>
+                        <td>${recipe.ingredients}</td>
+                        <td>${recipe.preparationTime}</td>
+                        <td>${recipe.difficultyLevel}</td>
+                        <td>${recipe.cuisineType}</td>
+                        <td>
+                            <!-- Plasserer "MArk as Favorite" knappen i Actions-->
+                        ${createFavoriteButton(recipe.id).outerHTML}</td>
+                    </tr>`
+                ).join(''); // bruker join for å ikke sette komma automatisk i html'en
+            } else {
+                noDataMessageElement.style.display = 'block';
+                recipeList.innerHTML = '';
+            }
+            showToast("Fetches successfully",true);
+        } catch (error) {
+            console.error('Error fetching recipes:  ', error);
+            showToast(`Failed to fetch recipes: ${error.message}`,false)
+        } finally {
+            hideLoading();
+        }
+    };
+    previousPageButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        if(currentPage > 0) {
+            currentPage--;
+            fetchRecipes();
+        }
+    });
+    nextPageButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        if(currentPage < totalPages -1) {
+            currentPage++;
+            fetchRecipes();
+        }
+    })
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchRecipes();
+    })
+</script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <!-- Bootstrap css -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- loading ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+          integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        .password-container {
+            position: relative;
+        }
+    .password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        outline: none;
+    }
+    .password-container > .form-control {
+        padding-right: 40px;
+    }
+        /* Stylingen for loading-indikatoren */
+        .loading-indicator {
+            display: inline-block; /* Gjør at elementet oppfører seg som et inline element, men man kan fortsatt styre bredde og høyde */
+            margin-left: 5px;  /* Gir en margin på 5px på venstre side av elementet */
+            animation: spinner-border 1s linear infinite; /* Setter en animasjon ved navn spinner-border */
+        }
+
+        /* Definisjon av animasjons-effekten */
+        @keyframes spinner-border {
+            to { /* Ved slutten av animasjonen*/
+                transform: rotate(360deg); /* Roter elementet 360 grader (en full rotasjon) */
+            }
+        }
+
+        /* Styling for å deaktivere et element */
+        .disabled-element {
+            pointer-events: none; /* Hindrer museklikk på elementet */
+            opacity: 0.7; /* Gjør elementet litt gjennomsiktig */
+            cursor: not-allowed; /* Endrer musepekeren til "not-allowed" */
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<div class="container login-container mt-5 col-md-6 lg-8">
+    <h2 class="mb-4 text-center">Login</h2>
+    <form id="loginForm" class="login-form">
+        <!-- Username -->
+        <div class="form-floating mb-3">
+            <input type="text" class="form-control" id="username" placeholder="Enter username" required/>
+            <label for="username" >Username</label>
+            <div class="invalid-feedback">The username must be between 2-50 characters, without spaces, with letters,
+                numbers, "@", "." or "-". For example: test.user-1</div>
+        </div>
+        <!-- password -->
+        <div class="form-floating mb-3 password-container">
+            <input type="password" class="form-control" id="password" placeholder="Enter Password" required/>
+            <label for="password">Password</label>
+            <button type="button" id="showPassword" class="password-toggle" aria-label="Show password" >
+                <i class="fas fa-eye" id="show-hide-icon"></i>
+            </button>
+            <div class="invalid-feedback">The password must be at least 8 characters long, with uppercase and lowercase letters, uppercase and special characters such as (@$!%*?&). For example: Test123!</div>
+        </div>
+        <button type="submit"></button>
+    </form>
+</div>
+<!-- Plasserer toast øvers høyre hjørne top er 0 og end er 0-->
+<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+        <div class="toast-header">
+            <strong class="me-auto">Recipe submission</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="close"></button>
+        </div>
+        <div id="toastBody" class="toast-body">
+            <!-- Dynamically updated content will go here -->
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Axios script -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script defer>
+    const submitButton = document.querySelector('button[type="submit"]');
+    submitButton.classList.add('btn','btn-primary');
+    submitButton.textContent = 'Sign in';
+    /**
+     *
+     * @type {HTMLElement}
+     */
+    const passwordToggle = document.getElementById('showPassword');
+    passwordToggle.addEventListener('click', () => {
+        const passwordInput = document.getElementById('password');
+        const icon = document.getElementById('show-hide-icon');
+        if(passwordInput.type === "password") {
+            passwordInput.type = "text";
+            icon.classList.remove('fas', 'fa-eye');
+            icon.classList.add('fas', 'fa-eye-slash');
+        } else {
+            passwordInput.type = "password";
+            icon.classList.remove('fas', 'fa-eye-slash');
+            icon.classList.add('fas', 'fa-eye')
+        }
+    })
+    /**
+     *
+     * @param value
+     * @param regex
+     * @param inputElement
+     * @returns {boolean}
+     */
+    const validateField = (value, regex, inputElement) => {
+        if(!regex.test(value)) {
+            inputElement.classList.add('is-invalid');
+            return false;
+        }
+        inputElement.classList.remove('is-invalid');
+        inputElement.classList.add('is-valid');
+        return true;
+    }
+    /**
+     *
+     * @returns {boolean}
+     */
+    const validateUsername = () => {
+        const username = document.getElementById('username');
+        return validateField(username.value,
+            /^(?!\s)(?!.*\s{2})[A-Za-z.0-9@\-]{2,50}(?<!\s)$/,
+            username);
+    }
+    /**
+     *
+     * @returns {boolean}
+     */
+    const validatePassword = () => {
+        const password = document.getElementById('password');
+        return validateField(password.value,
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        password);
+    }
+    /**
+     *
+     * @type {{password: (function(): boolean), username: (function(): boolean)}}
+     */
+    const validations = {
+        username : validateUsername,
+        password: validatePassword
+    }
+    /**
+     *
+     * @type {Element}
+     */
+    const form = document.querySelector('.login-form');
+    form.addEventListener('input', (e) => {
+        const fieldId = e.target.id;
+        if(validations[fieldId]) {
+            validations[fieldId]();
+        }
+    });
+
+
+    /**
+     *
+     * @param message
+     * @param level
+     */
+    const logMessage = (message, level = 'info') => {
+        // Hvis level er "info", så tilsvarer console[level] console.info
+        // Logger: [login] WARN: Failed login attempt
+        console[level](`[login] ${level.toUpperCase()}: ${message}`);
+    }
+    /**
+     *
+     * @param message
+     * @param isSuccess
+     */
+    const showToast = (message, isSuccess = true) => {
+        const toastElement = document.getElementById('toast'); // Hent selve toast-elementet
+        const toastBody = toastElement.querySelector('.toast-body'); // Hent body-delen av toasten
+        toastBody.classList.remove('bg-danger', 'bg-success'); // Fjern eksisterende bakgrunnsfarger
+        toastBody.classList.add(isSuccess ? 'bg-success' : 'bg-danger'); // Legg til riktig bakgrunnsfarge
+        toastBody.textContent = message; // Sett meldingsteksten i toast-body
+        const toast = new bootstrap.Toast(toastElement); // Lag og vis toasten
+        toast.show(); // Vis toasten
+    }
+
+    /**
+     *
+     * @param event
+     * @returns {Promise<void>}
+     */
+    const validateForm = (e) => {
+        e.preventDefault();
+        let isFormValid = true;
+        for(const fieldId in validations) {
+            if(!validations[fieldId]()) {
+                isFormValid = false;
+            }
+        }
+        if(isFormValid){
+            // Gjør her ting som å sende data til back-end
+            console.log("Formet er gyldig. Sender data...");
+        } else {
+            console.log("Formet er ikke gyldig");
+        }
+    }
+    /**
+     *
+     * @param isLoading
+     */
+    const setLoadingState = (isLoading) => {
+        if(isLoading) {
+            submitButton.classList.add('disabled-element');
+            submitButton.disabled = true;
+            submitButton.innerHTML = 'Loading... <i class="fas fa-spinner loading-indicator"></i>';
+        } else {
+            submitButton.classList.remove('disabled-element');
+            submitButton.disabled = false;
+            submitButton.innerHTML = 'Sign in';
+        }
+    }
+    /**
+     *
+     * @param event
+     * @returns {Promise<void>}
+     */
+    const handleLoginSubmit = async (event) => {
+        event.preventDefault();
+        setLoadingState(true);
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+        logMessage(`sign in attempt for user: ${username}`);
+        validateForm(event);
+        try {
+            const loginrequest = {
+                username: username,
+                password: password
+            }
+            const response = await axios.post("/auth/login", loginrequest);
+            logMessage(`login successfull for user: ${username}`);
+            logMessage(response.data.message);
+            logMessage(response.data.data);
+            window.location.href = "../CreateRecipyObject/index.html";
+        } catch (error) {
+            logMessage(error.message, "error");
+            showToast(error.message, false);
+        } finally {
+            setLoadingState(false); // resetter loading state etter suksess eller feil
+        }
+
+    }
+    form.addEventListener('submit',  (e) => {
+        handleLoginSubmit(e);
+    })
+</script>
+</body>
+</html>

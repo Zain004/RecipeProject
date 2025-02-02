@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Recipe Entry Form</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .form-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-title {
+            color: #343a40;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: #fff;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6 form-container">
+            <h1 class="form-title text-center mb-4">Recipe Entry form</h1>
+            <form class="needs-validation" novalidate>
+                <!-- Recipe name -->
+                <div class="mb-3">
+                    <label for="recipeName" class="form-label">Recipe Name</label>
+                    <input type="text"
+                           class="form-control"
+                           id="recipeName"
+                           name="recipeName"
+                           placeholder="Enter recipe name"
+                           title="Must have between 2 or 50 characters."
+                           pattern="(?!\s)(?!.*\s{2})[A-Za-z.\- ]{2,50}(?<!\s)"
+                           autofocus
+                           required/>
+                    <div class="invalid-feedback">please write recipe name betwwen 2 to 50 charcters. Remove double spaces and spaces before and after.</div>
+                </div>
+                <!-- Ingredients -->
+                <div class="mb-3">
+                    <label for="ingredients" class="form-label">Ingredients</label>
+                    <textarea
+                    class="form-control"
+                    id="ingredients"
+                    type="text"
+                    name="ingredients"
+                    rows="4"
+                    placeholder="List Ingredients separated by commas"
+                    title="Remove space before and after."
+                    required
+                    ></textarea>
+                    <div class="invalid-feedback">Please write ingredients</div>
+                </div>
+                <!-- Preparation time -->
+                <div class="mb-3">
+                    <label for="preparationTime" class="form-label">Preparation Time (minutes)</label>
+                    <input
+                    type="number"
+                    class="form-control"
+                    id="preparationTime"
+                    name="preparationTime"
+                    placeholder="e.g., 30"
+                    min="1"
+                    required/>
+                    <div class="invalid-feedback">Preperation time must be a positive number</div>
+                </div>
+                <!-- Difficulty Level -->
+                <div class="mb-3">
+                    <label for="difficultyLevel" class="form-label">Difficulty Level</label>
+                    <select class="form-select" id="difficultyLevel" name="difficultyLevel" required>
+                    <option value="" disabled selected>Select difficulty Level</option>
+                    <option value="EASY">Easy</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HARD">Hard</option>
+                    </select>
+                    <div class="invalid-feedback">Please select a difficulty level.</div>
+                </div>
+                <!-- Cuisine Type / kjøkken type-->
+                <div class="mb-3">
+                    <label for="cuisineType" class="form-label">Cuisine Type</label>
+                    <input type="text"
+                           class="form-control"
+                           id="cuisineType"
+                           name="cuisineType"
+                           title="Must have between 2 or 50 characters. Not use double spaces og spaces before and after."
+                           pattern="(?!\s)(?!.*\s{2})[A-Za-z.\- ]{2,50}(?<!\s)"
+                           placeholder="e.g., Italian, indian"
+                           required/>
+                    <div class="invalid-feedback">Please specify a cuisine type</div>
+                </div>
+                <!-- Submit button -->
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-custom">Submit recipe</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Toast -->
+<!-- Plasserer toast øvers høyre hjørne top er 0 og end er 0-->
+<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+    <div class="toast-header">
+        <strong class="me-auto">Recipe submission</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="close"></button>
+    </div>
+        <div id="toastBody" class="toast-body">
+            <!-- Dynamically updated content will go here -->
+        </div>
+    </div>
+</div>
+<!-- Bootstrap JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Axios link -->
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script>
+    // custom BootStrap validation. Kalles kun npr brukeren trykker submit
+    (function () {
+        'use strict';
+        const forms = document.querySelectorAll('.needs-validation');
+        Array.from(forms).forEach(form => {
+            form.addEventListener('submit', async event => { // registrerer hendelseslytter på submit
+                if(!form.checkValidity()) { // manuell sjekk for HTML5 elementer, fordi vi bruker novalidate for å stoppe sjekkene
+                    event.preventDefault(); // stoppper skjemaet fra å bli sendt
+                    event.stopPropagation(); //
+                    form.classList.add('was-validated');
+                    return;
+                }
+                sendForm(event, form);
+                form.classList.add('was-validated');
+                form.submitted = true;
+            }, false);
+            // Legg til event listener for inputEndringer på feltene
+            form.querySelectorAll('input, select, textarea').forEach(input => {
+                input.addEventListener('input',() => {
+                    validateField(input);
+                });
+            });
+        });
+
+    }())
+    const validateField = (input) => {
+        // Sjekker om input-feltet er gyldig ved å bruke HTML5's 'checkValidity'
+        if (input.checkValidity()) {
+            input.classList.remove('is-invalid'); // Fjerner 'is-invalid' hvis feltet er gyldig
+            input.classList.add('is-valid'); // Legger til 'is-valid' for å indikere at feltet er korrekt
+        } else {
+            input.classList.remove('is-valid'); // Fjerner 'is-valid' hvis feltet er ugyldig
+            input.classList.add('is-invalid'); // Legger til 'is-invalid' for å indikere at feltet er feil
+        }
+    }
+    // Funksjon for å vise toast med tilbakemelding
+    const showToast = (message, isSuccess = true) => {
+        const toastElement = document.getElementById('toast'); // Hent selve toast-elementet
+        const toastBody = toastElement.querySelector('.toast-body'); // Hent body-delen av toasten
+        toastBody.classList.remove('bg-danger', 'bg-success'); // Fjern eksisterende bakgrunnsfarger
+        toastBody.classList.add(isSuccess ? 'bg-success' : 'bg-danger'); // Legg til riktig bakgrunnsfarge
+        toastBody.textContent = message; // Sett meldingsteksten i toast-body
+        const toast = new bootstrap.Toast(toastElement); // Lag og vis toasten
+        toast.show(); // Vis toasten
+    }
+
+    const sendForm = async (event, form) => {
+        event.preventDefault();
+        if(!form) {
+            console.error("Fel: Form-elementet er ikke definert");
+            return;
+        }
+        const formData = new FormData(form);
+        const trimmedData = Object.fromEntries(
+            Object.entries(Object.fromEntries(formData.entries())).map(([key, value]) => [ key, typeof value === 'string' ? value.trim() : value, // trailing comma
+        ])
+    );
+        console.log(trimmedData); // Du kan gjøre hva du vil med objektet her
+        try {
+            const response = await axios.post('/recipeController/saveRecipe', trimmedData, {
+                headers: {'Content-Type': 'application/json'}
+            });
+            event.stopPropagation();
+            console.log("message: " + response.data.message);
+            console.info("data: " + JSON.stringify(response.data));
+            // Fjerner alle valideringsklasser
+            form.classList.remove('was-validated');
+            form.querySelectorAll('.is-invalid, .is-valid').forEach(el => {
+                el.classList.remove('is-invalid', 'is-valid');
+            });
+            form.submitted = false;
+            form.reset();
+            showToast("Recipe successfully saved!", true);
+        } catch (error) {
+            console.error("Error: " + error.message);
+            showToast("Error: " + (`${error.message}` || "Something went wrong!"), false);
+        }
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+        console.log("Page loaded successfully")
+    })
+</script>
+</body>
+</html>

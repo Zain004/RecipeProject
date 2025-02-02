@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6 form-container">
+            <h1 class="form-title text-center mb-4">Recipe Entry form</h1>
+            <form class="needs-validation" novalidate>
+
+                <!-- Recipe name -->
+                <div class="mb-3">
+                    <label for="recipeName" class="form-label">Recipe Name</label>
+                    <input type="text"
+                           class="form-control"
+                           id="recipeName"
+                           name="recipeName"
+                           placeholder="Enter recipe name"
+                           title="Must have between 2 or 50 characters."
+                           pattern="(?!\s)(?!.*\s{2})[A-Za-z.\- ]{2,50}(?<!\s)"
+                           autofocus
+                           required/>
+                    <div class="invalid-feedback">please write recipe name betwwen 2 to 50 charcters. Remove double spaces and spaces before and after.</div>
+                </div>
+                <!-- Ingredients -->
+                <div class="mb-3">
+                    <label for="ingredients" class="form-label">Ingredients</label>
+                    <textarea
+                            class="form-control"
+                            id="ingredients"
+                            type="text"
+                            name="ingredients"
+                            rows="4"
+                            placeholder="List Ingredients separated by commas"
+                            title="Remove space before and after."
+                            required
+                    ></textarea>
+                    <div class="invalid-feedback">Please write ingredients</div>
+                </div>
+                <!-- Preparation time -->
+                <div class="mb-3">
+                    <label for="preparationTime" class="form-label">Preparation Time (minutes)</label>
+                    <input
+                            type="number"
+                            class="form-control"
+                            id="preparationTime"
+                            name="preparationTime"
+                            placeholder="e.g., 30"
+                            min="1"
+                            required/>
+                    <div class="invalid-feedback">Preperation time must be a positive number</div>
+                </div>
+                <!-- Difficulty Level -->
+                <div class="mb-3">
+                    <label for="difficultyLevel" class="form-label">Difficulty Level</label>
+                    <select class="form-select" id="difficultyLevel" name="difficultyLevel" required>
+                        <option value="" disabled selected>Select difficulty Level</option>
+                        <option value="EASY">Easy</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HARD">Hard</option>
+                    </select>
+                    <div class="invalid-feedback">Please select a difficulty level.</div>
+                </div>
+                <!-- Cuisine Type / kjøkken type-->
+                <div class="mb-3">
+                    <label for="cuisineType" class="form-label">Cuisine Type</label>
+                    <input type="text"
+                           class="form-control"
+                           id="cuisineType"
+                           name="cuisineType"
+                           title="Must have between 2 or 50 characters. Not use double spaces og spaces before and after."
+                           pattern="(?!\s)(?!.*\s{2})[A-Za-z.\- ]{2,50}(?<!\s)"
+                           placeholder="e.g., Italian, indian"
+                           required/>
+                    <div class="invalid-feedback">Please specify a cuisine type</div>
+                </div>
+                <!-- Submit button -->
+                <button type="submit"></button>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Toast -->
+<!-- Plasserer toast øvers høyre hjørne top er 0 og end er 0-->
+<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+        <div class="toast-header">
+            <strong class="me-auto">Recipe submission</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="close"></button>
+        </div>
+        <div id="toastBody" class="toast-body">
+            <!-- Dynamically updated content will go here -->
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Axios link -->
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script defer>
+    const submitButton = document.querySelector('button[type="submit"]');
+    submitButton.classList.add('btn','btn-primary');
+    submitButton.textContent = 'Update recipe';
+    submitButton.addEventListener('mouseover', () => {
+        submitButton.style.backgroundColor = '0056b3';
+    });
+    submitButton.addEventListener('mouseout',() => {
+        submitButton.style.backgroundColor = '';
+    })
+
+    const trimObjects = (obj) => {
+        const trimemdObj = {};
+        for(const key in obj) {
+            if(typeof obj[key] === 'string' || typeof obj[key] === 'number') {
+                trimemdObj[key] = String(obj[key]).trim();
+            } else {
+                trimemdObj[key] = obj[key];
+            }
+        }
+        return trimemdObj;
+    }
+    const form = document.querySelector('.needs-validation');
+    const toggleButtonState = (button, disabled, text) => {
+        button.disabled = disabled;
+        button.textContent = text;
+    }
+    const calculateDay = async (asyncFunction, minDelay = 300, maxDelay = 1500, delayFactor = 1.2) => {
+        const startTime = performance.now(); // henter starttid for API-kallet
+        const result = await asyncFunction(); // skal fullføres og returnere resultatet
+        const endTime = performance.now(); // henter sluttTIden etter at async er utført
+        const apiCallDuration = endTime - startTime; // beregner hvor lang tid async function brukte
+        const delay = Math.min(maxDelay, Math.max(minDelay, apiCallDuration*delayFactor));
+        console.log(`API call took ${apiCallDuration}ms, Delaying UI for ${delay}ms`);
+        return {delay, result}; // object shorthand;
+    }
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        submitButton.disabled = true; // deaktiver knapp for dobbeltKlikk
+        submitButton.textContent = 'Updating......';
+        try {
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            const recipeEntity = trimObjects(data);
+            console.log("Trimmed data: ", recipeEntity);
+            const recipeid = getRecipeIDFromURL();
+            const inputs = form.querySelectorAll('input, select, textarea');
+            if(!form.checkValidity()) {
+                event.stopPropagation();
+                inputs.forEach(input => {
+                    validateField(input);
+                })
+                showToast('Please fill out all required fields', false);
+                return;
+            }
+            const response = async () => await axios.put(`/recipeController/putRecipeById/${recipeid}`, recipeEntity, {
+                headers: {'Content-Type' : 'application/json'}
+            });
+            const {delay, result} = await calculateDay(response);
+            console.log("message: " + result.data.message);
+            console.info("data: " + JSON.stringify(result.data));
+            showToast("Successfully updated recipe with ID: " + recipeid, true);
+            setTimeout(() => {
+                toggleButtonState(submitButton, false, 'Update recipe');
+            },delay)
+            event.target.reset();
+        } catch (error) {
+            console.error(`Error: ${error.message}`);
+            showToast(`Error: ${error.message}`, false);
+            toggleButtonState(submitButton,true,'Update recipe')
+        }
+    })
+    const showToast = (message, isSuccess = true) => {
+        const toastElement = document.getElementById('toast'); // Hent selve toast-elementet
+        const toastBody = toastElement.querySelector('.toast-body'); // Hent body-delen av toasten
+        toastBody.classList.remove('bg-danger', 'bg-success'); // Fjern eksisterende bakgrunnsfarger
+        toastBody.classList.add(isSuccess ? 'bg-success' : 'bg-danger'); // Legg til riktig bakgrunnsfarge
+        toastBody.textContent = message; // Sett meldingsteksten i toast-body
+        const toast = new bootstrap.Toast(toastElement); // Lag og vis toasten
+        toast.show(); // Vis toasten
+    }
+    const fetchRecipeId = async (recipeId) => {
+        try {
+            const response = await axios.get(`/recipeController/getRecipeById/${recipeId}`);
+            populateForm(response.data.data);
+            console.log(response.data.message || 'could not retrieve recipes');
+        } catch (error) {
+            console.error(`Error: ${error.message}`);
+            showToast(`Error: ${error.message}`, false);
+        } finally {
+            // for eksempel show loading
+        }
+    }
+    const populateForm = (recipe) => {
+        if(!recipe) {
+            console.log("Could not retrieve recipe!");
+            showToast("Could not retrieve recipe!",false);
+            return;
+        }
+        console.log("RecipeEntity: \n"+JSON.stringify(recipe));
+        document.getElementById('recipeName').value = recipe.recipeName;
+        document.getElementById('ingredients').value = recipe.ingredients;
+        document.getElementById('preparationTime').value = recipe.preparationTime;
+        document.getElementById('difficultyLevel').value = recipe.difficultyLevel;
+        document.getElementById('cuisineType').value = recipe.cuisineType;
+    }
+    const getRecipeIDFromURL = () => {
+        const urlParams = new URLSearchParams(window.location.search); // presenterer den akruelle nettleseraddressen
+        const urlParam = urlParams.get('id');
+        recipeURLExist(urlParam);
+        return urlParam;
+    }
+    const recipeURLExist = (id = true) => {
+        (id ? console.info("ID " + id + " successfully retrieved!") : console.error("Error while retrieving ID: "+id));
+        (id ? showToast("Id" + id +" successfully retrievede!",true) : showToast("Error while retrieving ID: " + id, false));
+    }
+    const validateField = (input) => {
+        if (!input.checkValidity()) {
+            input.classList.add('is-invalid');
+        } else {
+            input.classList.remove('is-invalid');
+            input.classList.add('is-valid');
+        }
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+        const recipeID = getRecipeIDFromURL();
+        if(recipeID) {
+            fetchRecipeId(recipeID);
+        }
+        const forms = document.querySelectorAll('.needs-validation');
+        forms.forEach(form => {
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    validateField(input);
+                })
+                input.addEventListener('change', () => {
+                    validateField(input);
+                })
+            });
+        })
+    })
+</script>
+</body>
+</html>

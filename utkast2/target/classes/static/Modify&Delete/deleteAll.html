@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Delete All Button</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- Icon style sheet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    .status-container {
+      display: flex;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+<div class="container mt-5 col-lg-6 col-md-8">
+  <h2>Delete all recipes example</h2>
+  <div class="card">
+    <div class="card-body ">
+      <h5 class="card-title">Enter Recipe Criteria</h5>
+      <!-- Form -->
+      <form id="deleteForm">
+        <div class="form-group">
+          <label for="preparationTime">Preparation Time (minutes):</label>
+          <input type="number" class="form-control" id="preparationTime" name="preparationTime" min="1" required>
+        </div>
+        <div class="form-group">
+          <label for="difficultylevel">Difficulyl Level:</label>
+          <select class="form-control" id="difficultylevel" name="difficultylevel" required>
+            <option value="">Select Difficulty</option>
+            <option value="EASY">EASY</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="HARD">HARD</option>
+          </select>
+        </div>
+        <!-- Button -->
+        <button type="submit"></button>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- status id -->
+<div id="status" class="status-container">
+</div>
+<!-- Bootstrap library -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<!-- Axios library -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script defer>
+  const deleteForm = document.getElementById('deleteForm');
+  /**
+   *
+   * @type {{button: null, isLoading: boolean, buttonOriginalText: null,
+   * init: loadingState.init, setLoading: loadingState.setLoading,
+   * removeLoading: loadingState.removeLoading,
+   * showLoading: loadingState.showLoading}}
+   */
+  const loadingState = {
+    button: null, // definerer lokale variabler
+    buttonOriginalText: null,
+    isLoading: false,
+    init: function () {
+      const button = deleteForm.querySelector('button[type="submit"]');
+      button.classList.add('btn', 'btn-danger');
+      button.innerText = 'send Details';
+      this.buttonOriginalText = 'send Details';
+      this.button = button;
+    },
+    setLoading: function (isLoading) {
+      this.isLoading = isLoading;
+      if(isLoading) {
+        this.showLoading();
+      } else {
+        this.removeLoading(); // Rettet her!
+      }
+    },
+    showLoading: function () {
+      this.button.disabled = true;
+      this.button.innerHTML = '';
+
+      const spinnerIcon = document.createElement('i');
+      spinnerIcon.classList.add('fa','fa-spinner','fa-spin');
+
+      const testSpan = document.createElement('span');
+      testSpan.innerText = 'Processing';
+
+      this.button.append(spinnerIcon);
+      this.button.append(testSpan);
+    },
+    removeLoading: function() {
+      this.button.disabled = false;
+      this.button.innerText = 'send Details';
+    }
+  }
+
+  /**
+   *
+   * @type {{setStatus: function(*, *, *): void}}
+   */
+  const statusDisplayManager = (() => {
+    let currentTimeoutId = null;
+    const defaultTimeout = 3000;
+    const clearDisplay = (statusDiv) => {
+      statusDiv.innerHTML='';
+    }
+    const setStatus = (message, isSuccess, timeout) => {
+      const statusDiv = document.getElementById('status');
+      if(!statusDiv) {
+        console.error('status div not found');
+        return;
+      }
+      const iconClass = isSuccess
+        ? "fas fa-check-circle text-success"
+        : "fas fa-times-circle text-danger";
+      statusDiv.innerHTML = `<span class="${iconClass}"> ${message}</span>`;
+      if(currentTimeoutId) {
+        clearTimeout(currentTimeoutId);
+      }
+      currentTimeoutId = setTimeout(() => {
+        clearDisplay(statusDiv);
+        currentTimeoutId = null;
+      }, timeout);
+    }
+    return {setStatus};
+  })(); // kjøres med en gang
+  /**
+   *
+   * @param message
+   * @param isSuccess
+   * @param timeout
+   */
+  const updateStatusDisplay = (message, isSuccess, timeout = 3000) => {
+    statusDisplayManager.setStatus(message, isSuccess, timeout);
+  }
+  /**
+   *
+   * @param event
+   * @returns {Promise<void>}
+   */
+  deleteForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      loadingState.setLoading(true);
+      try {
+        const formData = new FormData(event.target);
+        const data = Object.fromEntries(formData.entries());
+        console.log(data);
+        const response = await axios.delete(`/recipeController/DeleteRecipiEntitiesByPreparationTimeANDDifficultyLevel/${data.preparationTime}/${data.difficultylevel}`, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log(response.data.message);
+        updateStatusDisplay(response.data.message, true);
+        event.target.reset();
+      } catch (error) {
+        console.log(error);
+        updateStatusDisplay(`Error deleting, Check your login status: ${error.message}`, false);
+      } finally {
+        loadingState.setLoading(false);
+      }
+  })
+
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log("Successfully loaded page")
+    loadingState.init();
+  })
+</script>
+</body>
+</html>
